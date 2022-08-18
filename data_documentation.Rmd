@@ -1,0 +1,346 @@
+---
+title: "Data Documentation"
+author: "Matt Rogers"
+date: '2022-07-25'
+output: 
+  html_document:
+    css: style.css
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: false
+    theme: simplex
+---
+
+```{r setup, include=FALSE}
+
+library(coriverse)
+
+con <- connect_to_db("acs")
+
+schemas <- read_db(con, query = "select schema_name from information_schema.schemata where schema_name not in ('information_schema', 'tn_broadband', 'public', 'pg_catalog')")
+
+DBI::dbDisconnect(con)
+
+notes <- yaml::read_yaml("db_schema_annotation.yml")
+
+```
+
+------
+
+# DATA
+
+## ACS
+
+The ACS data pipeline is almost feature complete and is driven entirely by the YAML parameters file and the ACS codebook. Documentation on how to modify the ACS pipeline is available in the [data-acs wiki](https://github.com/ruralinnovation/data-acs/wiki).
+
+As of July 22 there are two outstanding tasks on this pipeline.
+
+- The step calculating the diversity score is not currently idempotent (i.e. running that step in isolation multiple times consecutively will calculate and append a diversity score variable each time -- i.e. after the second run there will be two diversity score variables in the DB, after the third three, etc. This is avoided if all steps are run (which drops and re-creates the table) but each step should be idempotent). This should be changed.
+
+- A final step should be added to update the DED data as part of the ACS pipeline
+
+We are currently storing the following ACS years: 2020, 2019, 2015, 2014
+
+When the time comes to ETL the 2021/2016 ACS data, the 2019 and 2014 data should be retired and removed from the database. If there is a need for extensve historical ACS data, it should not come through the pipeline.
+
+
+__Scripts:__ [data-acs](https://github.com/ruralinnovation/data-acs)
+
+__DB Schema:__ acs
+
+__Level of Measure:__ County, place, state, national
+
+__Update Cadence:__ Annual
+
+## BEA
+
+BEA is a good resource for many economic data points, including employment, GDP, and earnings flow and income. To date, CORI mainly ingests four data sets from the BEA: 
+
+- Employment by NAICS: CAEMP25N 
+
+- GDP by County and NAICS: CAGDP2 
+
+- Gross Flow of Earnings: CAINC91
+
+- Population/Personal Income: CAINC1
+
+Of note for the BEA data sets, Virginia counties and independent cities are always combined. 
+
+__Scripts:__ [data-bea](https://github.com/ruralinnovation/data-bea)
+
+__DB Schema:__ employment_data
+
+__Products:__ DED
+
+__Update Cadence:__ Annual
+
+## BLS
+
+BLS is a good resource for employment related statistics and CORI uses the Local Area Unemployment Statistics (LAUS) data to understand the employment, labor force, unemployment, etc. of US counties.
+
+__DB Schema:__ employment_data
+
+__Products:__ DED
+
+## Broadbandnow
+
+Broadbandnow is a dataset released by Microsoft that contains speed and usage information derived from proprietary Microsoft data. We use it very little, except for Broadband availability and access metric in the DED
+
+__Source:__ [BroadbandNow Github](https://github.com/BroadbandNow/Open-Data)
+
+__Products:__ DED
+
+__Level of Measure:__ ZIP Code
+
+## CBP
+
+County Business Pattern (CBP) is another data source for employment by NAICS codes. The advantage of CBP over other employment data sources is that CBP provides 6-digit NAICS code breakdown, so if you want to check the employment for a specific job category in a county, CBP is a better choice than BEA or BLS. The CBP also provides the number of establishments along with employment.
+
+For years prior to 2016, it was necessary to impute suppressed data for a fully useful data set. Because the CBP is so specific, there is a great deal of data suppression. After 2016, the CBP changed their methodology for dealing with small samples, using a data perturbation method for privacy protection. This renders the imputation both impossible and unnecessary.
+
+Because of some initial confusion surrounding imputation, this data was not fully updated for the DED effort in Spring 2022. Some rough work was done in [this script](https://github.com/ruralinnovation/ded/blob/main/ded_one_off_data_updates/cbp_new_tech_enabled_share.R) which will need to be updated if we intend to continue using this data.
+
+__Products:__ DED
+
+__Level of Measure:__ County
+
+## CPC
+
+County population characteristics data. We currently only use the annual population in the DED report.
+
+__Script:__ [ded/ded_one_off_data_updates/cpc_data_processing.R](https://github.com/ruralinnovation/ded/blob/main/ded_one_off_data_updates/cpc_data_processing.R)
+
+__Products:__ DED
+
+## FCC Form 477
+
+FCC Form 477 data is a provider-service-block level table provided by the FCC. This table is likely to be replaced by an address level data set in late 2022. The current process should thus be treated essentially as a legacy product. There are three major table patterns, `source_fcc_477_{month}{year}_{version}` which is unprocessed source data,  `broadband_f477_{year}` which is processed source data, and `broadband_f477_byblock_{year}` which is the processed block level tables. There is some variation in these patterns (particularly around the number of underscores separating words) driven by historical changes to the pipeline.
+
+Two notes: 
+
+- Unlike most of our ETL pipelines, this pipeline is written in Python. This is due to the FCC's use of the service Box to store the data. The existing R interfaces to the box API are clunky and ineffective, but Box provides a Python SDK that works seamlessly
+
+- The FCC has been compressing the files using deflate64 compression, which defeats Python's built in unzip functionality as well as the available dedicated deflate64 compression module. Linux unzip, however, deals with it handily. Thus, the initial ETL script needs to be run in a Linux environment.
+
+Because this data set is being retired soon, any effort spent on the current pipeline is burned time. It may be worth using a manual process to limp through the last few updates.
+
+Historically, we have retained all versions of each release. We should retain only the latest version of each release.
+
+__Scripts:__ [fcc_form_477](https://github.com/ruralinnovation/fcc_form_477)
+
+__DB Schema:__ sch_broadband
+
+__Products:__ BCAT
+
+__Level of Measure:__ Block + Provider + Technology (Raw), Block (Processed)
+
+__Update Cadence:__ Bi-Annual
+
+## Form D
+
+Form D data is a relatively new data source for RISI as of July 2022. While the data is incomplete, in that it systematically under counts offerings, it has the advantage of offering very recent data, often lagged by less than a quarter.
+
+Because this data is so dynamic, we have elected not store the data in our database in a general sense. Instead, we use the `dform` R package to access the data dynamically. 
+
+__Scripts:__ [data_venture_capital](https://github.com/ruralinnovation/data_venture_capital)
+
+__Package:__ [dform](https://github.com/ruralinnovation/dform)
+
+__Level of Measure:__ Offering
+
+__Update Cadence:__ Quarterly
+
+## Higher Education
+
+Higher education data is one of our more complex data processes. There are several moving pieces:
+
+- IPEDS and College Scorecard data. These are point data sets representing colleges and universities across the country
+
+- IPEDS completions data, which tracks degrees by SOC code
+
+- A CIP/SOC code crosswalk that allows us to track tech related degrees
+
+- A drivetime analysis that allows us to associate colleges and universities with geographies
+
+Because the drivetimes are unlikely to change, we should avoid re-running that process wholesale as it is incredibly time consuming. One possible method would be to create a process that checks for new institutions, calculates the drivetimes for those institutions, then appends the data to an existing table. The association of drivetimes to blocks is massive, and is best done in Google BigQuery or a similar environment.
+
+__Pipeline:__ [data_higher_ed_pipeline](https://github.com/ruralinnovation/data_higher_ed_pipeline)
+
+__Legacy code (for reference on drivetimes):__ [data-high-education](https://github.com/ruralinnovation/data-high-education)
+
+__DB Schema:__ higher_ed
+
+__Products:__ DED
+
+__Level of Measure:__ County
+
+__Update Cadence:__ Annual
+
+## LODES/LEHD
+
+LEHD data is used in two primary ways. First, the LODES geographic crosswalk is perhaps our most used crosswalk as it links blocks to a wide range of child geographies. Second, the LEHD data provides a reasonably detailed breakdown of employment by variables such as firm age, and as such we have historically used it for calculating variables such as the percent of employment in young firms. 
+
+__Code:__ [data-lodes](https://github.com/ruralinnovation/data-lodes)
+
+__Package:__ [lehdr](https://github.com/jamgreen/lehdr) (also available on CRAN via `install.packages`)
+
+__DB Schema:__ employment_data
+
+__Level of Measure:__ Block
+
+__Update Cadence:__ Annual
+
+## Location Analysis
+
+Location Analysis (LA) is a holdover from the early days of our team and describes a process rather than a specific set of data. The LA process exploits the fact that all U.S. census geographies are composed of Census blocks to calculate metrics across a range of geographies using block level estimates.
+
+Typically this has been percentages of blocks, households, or population in a given area meeting a characteristic (e.g. percent of blocks served by 25/3 internet per the FCC).
+
+This process is convenient, but has not been well utilized in 2021-2022. If this process is to be maintained, it should be re-evaluated for usefulness. For instance, using population weighted averages or something may ultimately provide more value.
+
+For instructions on how to add a data set to the location analysis process, see the [location_analysis wiki](https://github.com/ruralinnovation/location_analysis/wiki).
+
+
+__Scripts:__ [location_analysis](https://github.com/ruralinnovation/location_analysis)
+
+__Package:__ [aggregatoR](https://github.com/ruralinnovation/aggregatoR)
+
+__DB Schema:__ location_analysis
+
+## TIGER/Line
+
+The TIGER/Line data is the central source of truth for geographic boundaries in the US. There are two types of boundaries available from the TIGER/Line data, TIGER/Line boundaries and cartographic boundaries. Cartographic boundaries are simplified for representation on maps and should be used only for display and never for analysis.
+
+
+__Repo:__ [data-tiger-line](https://github.com/ruralinnovation/data-tiger-line)
+
+__Discussion of TIGER and CB files:__ [CORIverse Wiki Page](https://github.com/ruralinnovation/coriverse/wiki/Spatial-Data-for-Mapping-and-Analysis)
+
+__Level of Measure:__ Block, County, Place, State (etc.)
+
+__Update Cadence:__ Annual
+
+------
+
+# DATABASE
+
+-----
+
+Primary responsibility for database management should fall to the Data Engineer.
+
+## Philosophy
+
+- Data that must be shared should be written to the database
+
+- Data that is cumbersome to create should be written to the database
+
+- Disposable data should not be written to the database
+
+- Tests should not be written to the database
+
+- Schemas should be thematic -- they should collect tables from a single source or that reference a single concept.
+
+- A schema should contain more than one table
+
+- Schemas should be re-evaluated for their usefulness at least once per year. Given the typical cadence of work at CORI/RISI, this should likely be targeted for Spring (when things tend to be least busy). 
+
+- A significant project should have a database schema. The bar or level of scrutiny for writing something to a project schema is lower than for a core schema.
+
+- Tables in project schemata should be considered fundamentally ephemeral. When starting a new project, you should never reference tables in an another project schema.
+
+
+
+-----
+
+``` {r schemata, results='asis', echo = FALSE}
+con <- connect_to_db('acs')
+
+tbl_list <- lapply(schemas$schema_name, function(s) search_db_tables(con, schema = s))
+
+names(tbl_list) <- schemas$schema_name
+DBI::dbDisconnect(con)
+
+for (schema in schemas$schema_name){
+  cat("##", schema, "\n")
+  if (schema %in% names(notes)){
+    cat(notes[[schema]], "\n")
+  }
+  
+  
+  if (nrow(tbl_list[[schema]]) == 0){
+    cat("No Tables at Present")
+  } else {
+    print(knitr::kable(dplyr::arrange(tbl_list[[schema]], table_name)))
+  }
+  
+  cat('\n')
+}
+
+```
+
+
+-----
+
+# TOOLS
+
+## Airtable
+
+If it is necessary to use Airtable, `rairtable` is the best interface for our use. Install with `install.packages('rairtable')`.
+
+However, Airtable should not be supported as an MDA data access tool under any circumstances. It is time consuming to work with in the best of cases. Worse, database compatible names are typically unacceptable to client teams, rendering direct updates inconvenient at best and impossible at worst. There are no access controls and manual data edits are simple, so changes -- intentional or otherwise -- made by client teams will persist indefinitely.
+
+Airtable was fine for quick prototyping in the early days of our team, but it is fundamentally incompatible with data integrity and storage best practices and should be disavowed with vigor. In the best case, we should delete all MDA data from Airtable and forcefully discontinue support. If this happens I'll eat my hat.
+
+
+## BCAT (Broadband County Assessment Tool)
+
+BCAT is an application that integrates a variety of county and national level broadband metrics. It was originally developed for a project in Tennessee, but a national level version also exists. John Hall is the best reference for the inner workings of the BCAT.
+
+The pipeline for this tool is rough and in some cases assumes that now-defunct architecture and tables exist. It should receive an overhaul, not least to accommodate the deployment of the API designed and built for our team by Merging Futures in the summer of 2022.
+
+__DB Schema:__ bcat
+
+__Pipeline:__ [broadband_county_assessment_tool_pipeline](https://github.com/ruralinnovation/broadband_county_assessment_tool_pipeline)
+
+__App Repo:__ [broadband_county_assessment_tool](https://github.com/ruralinnovation/broadband_county_assessment_tool)
+
+## RII Diagnostic Reports
+
+The RII Diagnostic report (as of August 22 called the Digital Economy Diagnostic, or DED; previously known as the DEE-R or Digital Economy Ecosystem Report) is one of the MDA team's main data products.
+
+It consists, in essence, of a data visualization API housed in a Shiny app, and generates data and graphic assets for the construction of the RII diagnostic reports.
+
+Outstanding tasks in this process include the following:
+
+- Integrating data updates into their respective data pipelines
+
+- Updating data (continuous need)
+
+Detailed documentation on how to use the system is in the doctR wiki linked below.
+
+__Recording of Overview Meeting w/ RII team:__ https://drive.google.com/file/d/1Gv5uC6bZD-B7D_nATU7RH8FxMYhLuqgc/view?usp=sharing
+
+__Recording of Technical Zoom Meeting:__ https://drive.google.com/drive/folders/1jUTQ2gMPpZ--foFQPGZi7Jy_-nT7Vw0-?usp=sharing
+
+__Viz Definitions + Misc Code:__ [ded](https://github.com/ruralinnovation/ded)
+
+__Package:__ [doctR](https://github.com/ruralinnovation/doctR)
+
+__Package Docs:__ [doctR wiki](https://github.com/ruralinnovation/doctR/wiki)
+
+__DED Portal Code:__ [clinic](https://github.com/ruralinnovation/clinic)
+
+__DB Schema:__ rii_diagostic
+
+__Legacy Code (non-functional):__ [dee-r](https://github.com/ruralinnovation/dee-r)
+
+_NB: the 'doctor' puns make the most sense if you pronounce DED as "dead". What do you do when something might be DED? Call the doctR. I couldn't help myself. MR 8/10/22_
+
+## T3 (Tech Talent Tracker)
+
+The T3 is a high traffic, high value tool for the organization. However, it is woefully out of date and a bastion of tech debt. It was built quickly on a shoestring budget without the benefit of development best practices.
+
+The current T3 codebase should receive no new development. 
+
+The script that created the data for this tool lives in the `temp` folder, and is titled `shiny_data_prep.R`.

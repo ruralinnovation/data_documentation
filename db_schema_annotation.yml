@@ -1,0 +1,19 @@
+acs: All ACS data tables
+ascendium: Project schema for the Ascendium project (concluded Spring 2022). Should be removed by Feb 2023
+bcat: All tables for Broadband County Assessment Tool
+core_data: Core data encompasses a variety of essential data sets. Additions to this schema should be 1) core to our work (e.g. the census), 2) not fit neatly into another existing schema, and 3) not merit their own new schema (e.g. a single table goes here, five tables get a new schema)
+cori_model: Tables for the CORI Model selector, now defunct. Destroy by 12/22
+eda: Project schema for the EDA Who is Missing analysis project (WIM) (concluded Winter/Spring 2022).. Should be removed by EOY 2023
+employment_data: Schema for employment data from all sources (e.g. BLS, BEA, LODES, etc.). BLS has not been systematically updated due to low demand, and should live on this schema moving forward.
+location_analysis: Schema for Location Analysis tables
+metadata: Home for metadata tables
+rii_diagnostic: Home for RII Diagnostic tables
+rwjf: Project schema for the RWJF project
+sch_broadband: Schema for Broadband related tables (particularly the FCC Form 477). 
+sch_census_tiger: Schema for TIGER/Line data. Tables flagged as 'cb' are cartographic boundary files for mapping, as opposed to 'tiger' tables for spatial analysis.
+sch_layer: This is a legacy database schema, previously used for processed mappable tables (i.e. 'layers'). Do not write new data to this schema. Do not transfer it to the new database. Remove by EOY 2023 or sooner.
+sch_source: This is a legacy database schema used to store raw source data. Its continued use is optional. It is most useful for large datasets such as the form 477, where the time cost to load the data into postgres is high. If the new FCC process moves out of Postgres, as it likely should, this schema should be retired and emptied.
+vt_broadband: Project schema for the a broadband project in VT concluded in 2021. It should be destroyed by EOY 2023
+venture_capital: Schema for venture capital data.
+higher_ed: Schema for all higher education related data
+historical_census_data: Schema for historical census tables. Experimental. If empty by EOY 2022, remove.
