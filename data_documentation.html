@@ -1542,18 +1542,25 @@ wiki</a>.</p>
 <p>As of July 22 there are two outstanding tasks on this pipeline.</p>
 <ul>
 <li><p>The step calculating the diversity score is not currently
-idempotent (i.e. running that step in isolation multiple times
+idempotent (that is, running that step in isolation multiple times
 consecutively will calculate and append a diversity score variable each
-time – i.e. after the second run there will be two diversity score
-variables in the DB, after the third three, etc. This is avoided if all
-steps are run (which drops and re-creates the table) but each step
-should be idempotent). This should be changed.</p></li>
+time – in other words, after the second run there will be two diversity
+score variables in the DB, after the third three, etc. This is avoided
+if all steps are run sequentially (which drops and re-creates the table)
+but each step should be idempotent). This should be addressed</p></li>
 <li><p>A final step should be added to update the DED data as part of
 the ACS pipeline</p></li>
 </ul>
+<p>We are currently storing the following ACS years: 2020, 2019, 2015,
+2014</p>
+<p>When the time comes to ETL the 2021/2016 ACS data, the 2019 and 2014
+data should be retired and removed from the database. If there is a need
+for extensive historical ACS data, it should not come through the
+pipeline.</p>
 <p><strong>Scripts:</strong> <a href="https://github.com/ruralinnovation/data-acs">data-acs</a></p>
 <p><strong>DB Schema:</strong> acs</p>
 <p><strong>Level of Measure:</strong> County, place, state, national</p>
+<p><strong>Update Cadence:</strong> Annual</p>
 </div>
 <div id="bea" class="section level2">
 <h2>BEA</h2>
@@ -1571,14 +1578,29 @@ cities are always combined.</p>
 <p><strong>Scripts:</strong> <a href="https://github.com/ruralinnovation/data-bea">data-bea</a></p>
 <p><strong>DB Schema:</strong> employment_data</p>
 <p><strong>Products:</strong> DED</p>
+<p><strong>Update Cadence:</strong> Annual</p>
 </div>
 <div id="bls" class="section level2">
 <h2>BLS</h2>
 <p>BLS is a good resource for employment related statistics and CORI
 uses the Local Area Unemployment Statistics (LAUS) data to understand
-the employment, labor force, unemployment, etc. of US counties.</p>
+the employment, labor force, unemployment, etc. of US counties. In
+particular, we source the county labor force participation rate from the
+BLS for the DED.</p>
+<p>Because the demand for BLS data has been low in the past two years,
+the process remains rough.</p>
 <p><strong>DB Schema:</strong> employment_data</p>
 <p><strong>Products:</strong> DED</p>
+<p><strong>DED Script (Ugly):</strong> <a href="https://github.com/ruralinnovation/pro-emp-risk-map/blob/master/ded_bls.R">ded_bls.R</a></p>
+<p><strong>ETL Script (Butt Ugly…):</strong> <a href="https://github.com/ruralinnovation/pro-emp-risk-map/blob/master/source_bls_data_annual.R">source_bls_data_annual.R</a></p>
+<p><em>A historical note: You will notice in this repo (and elsewhere)
+the widespread use of ‘x.’ as a prefix for variables in R code. The
+initial data work done by the MDA team was done by Alex Tenenbaum (AT),
+one of the earliest members of this organization, which was subsequently
+handed off to Chen Chen. AT encouraged the use of common prefix for
+objects such that he could remove objects from memory using rm() without
+needing to ever restart his R session, a practice Chen followed. This is
+not a good idea and should not be emulated moving forward.</em></p>
 </div>
 <div id="broadbandnow" class="section level2">
 <h2>Broadbandnow</h2>
@@ -1625,7 +1647,13 @@ annual population in the DED report.</p>
 <p>FCC Form 477 data is a provider-service-block level table provided by
 the FCC. This table is likely to be replaced by an address level data
 set in late 2022. The current process should thus be treated essentially
-as a legacy product.</p>
+as a legacy product. There are three major table patterns,
+<code>source_fcc_477_{month}{year}_{version}</code> which is unprocessed
+source data, <code>broadband_f477_{year}</code> which is processed
+source data, and <code>broadband_f477_byblock_{year}</code> which is the
+processed block level tables. There is some variation in these patterns
+(particularly around the number of underscores separating words) driven
+by historical changes to the pipeline.</p>
 <p>Two notes:</p>
 <ul>
 <li><p>Unlike most of our ETL pipelines, this pipeline is written in
@@ -1639,11 +1667,17 @@ as the available dedicated deflate64 compression module. Linux unzip,
 however, deals with it handily. Thus, the initial ETL script needs to be
 run in a Linux environment.</p></li>
 </ul>
+<p>Because this data set is being retired soon, any effort spent on the
+current pipeline is burned time. It may be worth using a manual process
+to limp through the last few updates.</p>
+<p>Historically, we have retained all versions of each release. We
+should retain only the latest version of each release.</p>
 <p><strong>Scripts:</strong> <a href="https://github.com/ruralinnovation/fcc_form_477">fcc_form_477</a></p>
 <p><strong>DB Schema:</strong> sch_broadband</p>
 <p><strong>Products:</strong> BCAT</p>
 <p><strong>Level of Measure:</strong> Block + Provider + Technology
 (Raw), Block (Processed)</p>
+<p><strong>Update Cadence:</strong> Bi-Annual</p>
 </div>
 <div id="form-d" class="section level2">
 <h2>Form D</h2>
@@ -1657,6 +1691,7 @@ in our database in a general sense. Instead, we use the
 <p><strong>Scripts:</strong> <a href="https://github.com/ruralinnovation/data_venture_capital">data_venture_capital</a></p>
 <p><strong>Package:</strong> <a href="https://github.com/ruralinnovation/dform">dform</a></p>
 <p><strong>Level of Measure:</strong> Offering</p>
+<p><strong>Update Cadence:</strong> Quarterly</p>
 </div>
 <div id="higher-education" class="section level2">
 <h2>Higher Education</h2>
@@ -1683,6 +1718,7 @@ environment.</p>
 <p><strong>DB Schema:</strong> higher_ed</p>
 <p><strong>Products:</strong> DED</p>
 <p><strong>Level of Measure:</strong> County</p>
+<p><strong>Update Cadence:</strong> Annual</p>
 </div>
 <div id="lodeslehd" class="section level2">
 <h2>LODES/LEHD</h2>
@@ -1697,6 +1733,7 @@ such as the percent of employment in young firms.</p>
 CRAN via <code>install.packages</code>)</p>
 <p><strong>DB Schema:</strong> employment_data</p>
 <p><strong>Level of Measure:</strong> Block</p>
+<p><strong>Update Cadence:</strong> Annual</p>
 </div>
 <div id="location-analysis" class="section level2">
 <h2>Location Analysis</h2>
@@ -1731,6 +1768,7 @@ should be used only for display and never for analysis.</p>
 Wiki Page</a></p>
 <p><strong>Level of Measure:</strong> Block, County, Place, State
 (etc.)</p>
+<p><strong>Update Cadence:</strong> Annual</p>
 <hr />
 </div>
 </div>
@@ -1794,49 +1832,6 @@ tables in an another project schema.</p></li>
 </tbody>
 </table>
 </div>
-<div id="ascendium" class="section level2">
-<h2>ascendium</h2>
-<p>Project schema for the Ascendium project (concluded Spring 2022).
-Should be removed by Feb 2023</p>
-<table>
-<thead>
-<tr class="header">
-<th align="left">table_schema</th>
-<th align="left">table_name</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">ascendium</td>
-<td align="left">jpa_data_top10_skills</td>
-</tr>
-<tr class="even">
-<td align="left">ascendium</td>
-<td align="left">profiles_count_april272021</td>
-</tr>
-<tr class="odd">
-<td align="left">ascendium</td>
-<td align="left">profiles_jpa_top10skills_april282021_r</td>
-</tr>
-<tr class="even">
-<td align="left">ascendium</td>
-<td align="left">profiles_skills_all_april282021</td>
-</tr>
-<tr class="odd">
-<td align="left">ascendium</td>
-<td align="left">regional_lmi_table</td>
-</tr>
-<tr class="even">
-<td align="left">ascendium</td>
-<td align="left">rural_employer_data_deidentified</td>
-</tr>
-<tr class="odd">
-<td align="left">ascendium</td>
-<td align="left">us_tract_geojson_2019</td>
-</tr>
-</tbody>
-</table>
-</div>
 <div id="bcat" class="section level2">
 <h2>bcat</h2>
 <p>All tables for Broadband County Assessment Tool</p>
@@ -1850,85 +1845,89 @@ Should be removed by Feb 2023</p>
 <tbody>
 <tr class="odd">
 <td align="left">bcat</td>
-<td align="left">bcat_auction_904_subsidy_awards</td>
+<td align="left">acp_adoption_county</td>
 </tr>
 <tr class="even">
+<td align="left">bcat</td>
+<td align="left">bcat_auction_904_subsidy_awards</td>
+</tr>
+<tr class="odd">
 <td align="left">bcat</td>
 <td align="left">bcat_broadband_100_20_unserved_blocks</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">bcat</td>
 <td align="left">bcat_broadband_unserved_blocks</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">bcat</td>
 <td align="left">bcat_county_broadband_farm_bill_eligibility</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">bcat</td>
 <td align="left">bcat_county_broadband_pending_rural_dev</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">bcat</td>
 <td align="left">bcat_county_ilecs</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">bcat</td>
 <td align="left">bcat_county_ilecs_geo</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">bcat</td>
 <td align="left">bcat_county_provider_summary</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">bcat</td>
 <td align="left">bcat_county_rural_dev_broadband_protected_borrowers</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">bcat</td>
 <td align="left">bcat_county_summary</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">bcat</td>
 <td align="left">bcat_fiber_cable_unserved_blocks</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">bcat</td>
 <td align="left">bcat_incumbent_electric_providers</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">bcat</td>
 <td align="left">bcat_incumbent_electric_providers_geo</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">bcat</td>
 <td align="left">bcat_tn_areas_wo_100x20_2022_01_17</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">bcat</td>
 <td align="left">bcat_tn_areas_wo_25x3_2022_01_17</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">bcat</td>
 <td align="left">bcat_tn_bb_grant_2022_01_17</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">bcat</td>
 <td align="left">bcat_tn_ebb_fund_2022_01_17</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">bcat</td>
 <td align="left">bcat_tn_reconnect_2022_01_17</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">bcat</td>
 <td align="left">bcat_wo_25x3_2022_01_17</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">bcat</td>
 <td align="left">county_adjacency_crosswalk</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">bcat</td>
 <td align="left">hifld_electric_retail_service_territories</td>
 </tr>
@@ -2026,8 +2025,8 @@ schema (e.g. a single table goes here, five tables get a new schema)</p>
 </div>
 <div id="eda" class="section level2">
 <h2>eda</h2>
-<p>Project schema for the Ascendium project (concluded Spring 2022).
-Should be removed by EOY 2023</p>
+<p>Project schema for the EDA Who is Missing analysis project (WIM)
+(concluded Winter/Spring 2022).. Should be removed by EOY 2023</p>
 <table>
 <colgroup>
 <col width="17%" />
@@ -2242,7 +2241,8 @@ Should be removed by EOY 2023</p>
 <div id="employment_data" class="section level2">
 <h2>employment_data</h2>
 <p>Schema for employment data from all sources (e.g. BLS, BEA, LODES,
-etc.)</p>
+etc.). BLS has not been systematically updated due to low demand, and
+should live on this schema moving forward.</p>
 <table>
 <thead>
 <tr class="header">
@@ -2501,21 +2501,25 @@ etc.)</p>
 </tr>
 <tr class="odd">
 <td align="left">rwjf</td>
-<td align="left">nhgis_census_race_1980_2020</td>
+<td align="left">nhgis_census_pop_1790_2020</td>
 </tr>
 <tr class="even">
+<td align="left">rwjf</td>
+<td align="left">nhgis_census_race_1980_2020</td>
+</tr>
+<tr class="odd">
 <td align="left">rwjf</td>
 <td align="left">persistent_poverty_counties</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">rwjf</td>
 <td align="left">reinvisioning_rural_typology</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">rwjf</td>
 <td align="left">social_vulnerability_index</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">rwjf</td>
 <td align="left">ur_america_typology</td>
 </tr>
@@ -2524,11 +2528,8 @@ etc.)</p>
 </div>
 <div id="sch_broadband" class="section level2">
 <h2>sch_broadband</h2>
-<p>Schema for Broadband related tables (particularly the FCC Form 477).
-There are two major table patterns, <code>broadband_f477_{year}</code>
-which is source data, and <code>broadband_f477_byblock_{year}</code>
-which is the processed block level tables. There is some variation in
-these patterns driven by historical changes to the pipeline.</p>
+<p>Schema for Broadband related tables (particularly the FCC Form
+477).</p>
 <table>
 <thead>
 <tr class="header">
@@ -2579,59 +2580,67 @@ these patterns driven by historical changes to the pipeline.</p>
 </tr>
 <tr class="odd">
 <td align="left">sch_broadband</td>
-<td align="left">broadband_f477_byblock_2014dec</td>
+<td align="left">broadband_f477_2021june_v1</td>
 </tr>
 <tr class="even">
+<td align="left">sch_broadband</td>
+<td align="left">broadband_f477_byblock_2014dec</td>
+</tr>
+<tr class="odd">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2015dec</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2015jun</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2016dec</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2016jun</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2017dec</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2017jun</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2018dec</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2018dec_v2</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2018jun</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2019dec</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2019jun</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2020december_v1</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">sch_broadband</td>
 <td align="left">broadband_f477_byblock_2020june_v1</td>
+</tr>
+<tr class="even">
+<td align="left">sch_broadband</td>
+<td align="left">broadband_f477_byblock_2021june_v1</td>
 </tr>
 <tr class="odd">
 <td align="left">sch_broadband</td>
@@ -2723,13 +2732,33 @@ these patterns driven by historical changes to the pipeline.</p>
 </tr>
 <tr class="odd">
 <td align="left">sch_broadband</td>
-<td align="left">source_fcc_477_december_2020_v1</td>
+<td align="left">source_fcc_477_dec2014_v3</td>
 </tr>
 <tr class="even">
 <td align="left">sch_broadband</td>
-<td align="left">source_fcc_477_jun_2020_v1</td>
+<td align="left">source_fcc_477_dec2015_v4</td>
 </tr>
 <tr class="odd">
+<td align="left">sch_broadband</td>
+<td align="left">source_fcc_477_dec2016_v2</td>
+</tr>
+<tr class="even">
+<td align="left">sch_broadband</td>
+<td align="left">source_fcc_477_dec2017_v3</td>
+</tr>
+<tr class="odd">
+<td align="left">sch_broadband</td>
+<td align="left">source_fcc_477_dec2018_v3</td>
+</tr>
+<tr class="even">
+<td align="left">sch_broadband</td>
+<td align="left">source_fcc_477_december_2020_v1</td>
+</tr>
+<tr class="odd">
+<td align="left">sch_broadband</td>
+<td align="left">source_fcc_477_jun_2020_v1</td>
+</tr>
+<tr class="even">
 <td align="left">sch_broadband</td>
 <td align="left">source_fcc_477_june_2020_v1</td>
 </tr>
@@ -2738,7 +2767,9 @@ these patterns driven by historical changes to the pipeline.</p>
 </div>
 <div id="sch_census_tiger" class="section level2">
 <h2>sch_census_tiger</h2>
-<p>Schema for TIGER/Line data</p>
+<p>Schema for TIGER/Line data. Tables flagged as ‘cb’ are cartographic
+boundary files for mapping, as opposed to ‘tiger’ tables for spatial
+analysis.</p>
 <table>
 <thead>
 <tr class="header">
@@ -2845,8 +2876,9 @@ these patterns driven by historical changes to the pipeline.</p>
 <div id="sch_layer" class="section level2">
 <h2>sch_layer</h2>
 <p>This is a legacy database schema, previously used for processed
-mappable tables (i.e. ‘layers’). Do not write new data to this
-schema.</p>
+mappable tables (i.e. ‘layers’). Do not write new data to this schema.
+Do not transfer it to the new database. Remove by EOY 2023 or
+sooner.</p>
 <table>
 <thead>
 <tr class="header">
@@ -3201,7 +3233,10 @@ schema.</p>
 <div id="sch_source" class="section level2">
 <h2>sch_source</h2>
 <p>This is a legacy database schema used to store raw source data. Its
-continued use is optional.</p>
+continued use is optional. It is most useful for large datasets such as
+the form 477, where the time cost to load the data into postgres is
+high. If the new FCC process moves out of Postgres, as it likely should,
+this schema should be retired and emptied.</p>
 <table>
 <thead>
 <tr class="header">
@@ -3376,49 +3411,53 @@ continued use is optional.</p>
 </tr>
 <tr class="even">
 <td align="left">sch_source</td>
-<td align="left">source_rural_definition_cbsa_2010</td>
+<td align="left">source_fcc_477_june_2021_v1</td>
 </tr>
 <tr class="odd">
+<td align="left">sch_source</td>
+<td align="left">source_rural_definition_cbsa_2010</td>
+</tr>
+<tr class="even">
 <td align="left">sch_source</td>
 <td align="left">source_rural_definition_cbsa_2013</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">sch_source</td>
 <td align="left">source_rural_definition_cbsa_2014</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">sch_source</td>
 <td align="left">source_rural_definition_cbsa_2019</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">sch_source</td>
 <td align="left">source_rural_definition_cbsa_2020</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">sch_source</td>
 <td align="left">source_rural_definition_cdc</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">sch_source</td>
 <td align="left">source_rural_definition_far</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">sch_source</td>
 <td align="left">source_rural_definition_fhfa</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">sch_source</td>
 <td align="left">source_rural_definition_forhp</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">sch_source</td>
 <td align="left">source_rural_definition_ruca</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">sch_source</td>
 <td align="left">source_rural_definition_rucc</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">sch_source</td>
 <td align="left">source_rural_definition_uic</td>
 </tr>
@@ -3722,51 +3761,83 @@ It should be destroyed by EOY 2023</p>
 <tbody>
 <tr class="odd">
 <td align="left">historical_census_data</td>
-<td align="left">pop_race_nhgis_1840_county</td>
+<td align="left">historical_census_county_crosswalk</td>
 </tr>
 <tr class="even">
+<td align="left">historical_census_data</td>
+<td align="left">pop_race_nhgis_1840_county</td>
+</tr>
+<tr class="odd">
 <td align="left">historical_census_data</td>
 <td align="left">pop_race_nhgis_1850_county</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">historical_census_data</td>
 <td align="left">pop_race_nhgis_1860_county</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">historical_census_data</td>
 <td align="left">pop_race_nhgis_1870_county</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">historical_census_data</td>
 <td align="left">pop_race_nhgis_1880_county</td>
 </tr>
+<tr class="odd">
+<td align="left">historical_census_data</td>
+<td align="left">pop_race_nhgis_1890_county</td>
+</tr>
 <tr class="even">
+<td align="left">historical_census_data</td>
+<td align="left">pop_race_nhgis_1900_county</td>
+</tr>
+<tr class="odd">
 <td align="left">historical_census_data</td>
 <td align="left">pop_race_nhgis_1910_county</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">historical_census_data</td>
 <td align="left">pop_race_nhgis_1920_county</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">historical_census_data</td>
 <td align="left">pop_race_nhgis_1930_county</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">historical_census_data</td>
 <td align="left">pop_race_nhgis_1940_county</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">historical_census_data</td>
 <td align="left">pop_race_nhgis_1950_county</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">historical_census_data</td>
 <td align="left">pop_race_nhgis_1960_county</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">historical_census_data</td>
 <td align="left">pop_race_nhgis_1970_county</td>
+</tr>
+<tr class="even">
+<td align="left">historical_census_data</td>
+<td align="left">pop_race_nhgis_1980_county</td>
+</tr>
+<tr class="odd">
+<td align="left">historical_census_data</td>
+<td align="left">pop_race_nhgis_1990_county</td>
+</tr>
+<tr class="even">
+<td align="left">historical_census_data</td>
+<td align="left">pop_race_nhgis_2000_county</td>
+</tr>
+<tr class="odd">
+<td align="left">historical_census_data</td>
+<td align="left">pop_race_nhgis_2010_county</td>
+</tr>
+<tr class="even">
+<td align="left">historical_census_data</td>
+<td align="left">pop_race_nhgis_2020_county</td>
 </tr>
 </tbody>
 </table>
@@ -3815,6 +3886,17 @@ Ecosystem Report) is one of the MDA team’s main data products.</p>
 <p>It consists, in essence, of a data visualization API housed in a
 Shiny app, and generates data and graphic assets for the construction of
 the RII diagnostic reports.</p>
+<p><strong>Notes:</strong></p>
+<ul>
+<li><p>As of 8/22, maps are not well supported as DED output. Adding new
+maps or modifying the existing map output is a moderate to large lift
+(depending on the ask). This will need to be supported by one or more
+MDA software developers</p></li>
+<li><p>The higher education map is not updated in the same way as any of
+the other data visualizations. All of the processing happens in <a href="https://github.com/ruralinnovation/doctR/blob/main/R/make_map.R"><code>doctR::make_map()</code></a>
+and is dependent on a handful of external tables. Additional development
+on this feature should not be taken lightly.</p></li>
+</ul>
 <p>Outstanding tasks in this process include the following:</p>
 <ul>
 <li><p>Integrating data updates into their respective data

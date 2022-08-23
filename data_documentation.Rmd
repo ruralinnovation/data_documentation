@@ -36,13 +36,13 @@ The ACS data pipeline is almost feature complete and is driven entirely by the Y
 
 As of July 22 there are two outstanding tasks on this pipeline.
 
-- The step calculating the diversity score is not currently idempotent (i.e. running that step in isolation multiple times consecutively will calculate and append a diversity score variable each time -- i.e. after the second run there will be two diversity score variables in the DB, after the third three, etc. This is avoided if all steps are run (which drops and re-creates the table) but each step should be idempotent). This should be changed.
+- The step calculating the diversity score is not currently idempotent (that is, running that step in isolation multiple times consecutively will calculate and append a diversity score variable each time -- in other words, after the second run there will be two diversity score variables in the DB, after the third three, etc. This is avoided if all steps are run sequentially (which drops and re-creates the table) but each step should be idempotent). This should be addressed
 
 - A final step should be added to update the DED data as part of the ACS pipeline
 
 We are currently storing the following ACS years: 2020, 2019, 2015, 2014
 
-When the time comes to ETL the 2021/2016 ACS data, the 2019 and 2014 data should be retired and removed from the database. If there is a need for extensve historical ACS data, it should not come through the pipeline.
+When the time comes to ETL the 2021/2016 ACS data, the 2019 and 2014 data should be retired and removed from the database. If there is a need for extensive historical ACS data, it should not come through the pipeline.
 
 
 __Scripts:__ [data-acs](https://github.com/ruralinnovation/data-acs)
@@ -77,11 +77,19 @@ __Update Cadence:__ Annual
 
 ## BLS
 
-BLS is a good resource for employment related statistics and CORI uses the Local Area Unemployment Statistics (LAUS) data to understand the employment, labor force, unemployment, etc. of US counties.
+BLS is a good resource for employment related statistics and CORI uses the Local Area Unemployment Statistics (LAUS) data to understand the employment, labor force, unemployment, etc. of US counties. In particular, we source the county labor force participation rate from the BLS for the DED.
+
+Because the demand for BLS data has been low in the past two years, the process remains rough.
 
 __DB Schema:__ employment_data
 
 __Products:__ DED
+
+__DED Script (Ugly):__ [ded_bls.R](https://github.com/ruralinnovation/pro-emp-risk-map/blob/master/ded_bls.R)
+
+__ETL Script (Butt Ugly...):__ [source_bls_data_annual.R](https://github.com/ruralinnovation/pro-emp-risk-map/blob/master/source_bls_data_annual.R)
+
+_A historical note: You will notice in this repo (and elsewhere) the widespread use of 'x.' as a prefix for variables in R code. The initial data work done by the MDA team was done by Alex Tenenbaum (AT), one of the earliest members of this organization, which was subsequently handed off to Chen Chen. AT encouraged the use of common prefix for objects such that he could remove objects from memory using rm() without needing to ever restart his R session, a practice Chen followed. This is not a good idea and should not be emulated moving forward._
 
 ## Broadbandnow
 
@@ -310,6 +318,12 @@ __App Repo:__ [broadband_county_assessment_tool](https://github.com/ruralinnovat
 The RII Diagnostic report (as of August 22 called the Digital Economy Diagnostic, or DED; previously known as the DEE-R or Digital Economy Ecosystem Report) is one of the MDA team's main data products.
 
 It consists, in essence, of a data visualization API housed in a Shiny app, and generates data and graphic assets for the construction of the RII diagnostic reports.
+
+__Notes:__ 
+
+- As of 8/22, maps are not well supported as DED output. Adding new maps or modifying the existing map output is a moderate to large lift (depending on the ask). This will need to be supported by one or more MDA software developers
+
+- The higher education map is not updated in the same way as any of the other data visualizations. All of the processing happens in [`doctR::make_map()`](https://github.com/ruralinnovation/doctR/blob/main/R/make_map.R) and is dependent on a handful of external tables. Additional development on this feature should not be taken lightly.
 
 Outstanding tasks in this process include the following:
 
