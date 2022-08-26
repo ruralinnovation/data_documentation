@@ -95,6 +95,8 @@ _A historical note: You will notice in this repo (and elsewhere) the widespread 
 
 Broadbandnow is a dataset released by Microsoft that contains speed and usage information derived from proprietary Microsoft data. We use it very little, except for Broadband availability and access metric in the DED
 
+__Script:__ [data-broadbandnow](https://github.com/ruralinnovation/data-broadbandnow)
+
 __Source:__ [BroadbandNow Github](https://github.com/BroadbandNow/Open-Data)
 
 __Products:__ DED
