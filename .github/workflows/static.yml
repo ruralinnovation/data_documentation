@@ -31,7 +31,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Create index file
-        run: cp data_documentation.html index.html
+        run: |
+          mkdir -p docs && \
+          cp data_documentation.html index.html
       - name: Setup Pages
         uses: actions/configure-pages@v3
       - name: Upload artifact
